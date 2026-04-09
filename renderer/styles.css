@@ -1,0 +1,237 @@
+/* ── Reset & base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #0d0d1a;
+  --bg2:        #1a1a2e;
+  --bg3:        #16213e;
+  --accent:     #7c3aed;
+  --accent2:    #a78bfa;
+  --success:    #10b981;
+  --danger:     #ef4444;
+  --text:       #e2e8f0;
+  --text-muted: #94a3b8;
+  --border:     #2d2d4e;
+  --titlebar-h: 32px;
+  --actionbar-h: 44px;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Title bar ────────────────────────────────────────────────────────────── */
+#titlebar {
+  height: var(--titlebar-h);
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px 0 16px;
+  -webkit-app-region: drag;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+#titlebar-left, #titlebar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+#app-icon { font-size: 15px; }
+#app-title { font-weight: 600; color: var(--accent2); letter-spacing: 0.4px; }
+
+#btn-pick-folder {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12px;
+  cursor: pointer;
+  line-height: 1.4;
+  transition: border-color .15s;
+}
+#btn-pick-folder:hover { border-color: var(--accent); }
+
+#cwd-display {
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Consolas', monospace;
+  opacity: 0.8;
+}
+
+#shell-select {
+  background: var(--bg3);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  outline: none;
+}
+#shell-select:hover { border-color: var(--accent); }
+
+#btn-restart {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all .15s;
+}
+#btn-restart:hover { color: var(--accent2); border-color: var(--accent); }
+
+/* ── Terminal container ───────────────────────────────────────────────────── */
+#terminal-container {
+  flex: 1;
+  overflow: hidden;
+  padding: 4px 0 4px 4px;
+  background: var(--bg);
+}
+
+#terminal {
+  width: 100%;
+  height: 100%;
+}
+
+/* xterm overrides */
+.xterm { height: 100%; }
+.xterm-viewport { background: var(--bg) !important; }
+
+/* ── Action bar ───────────────────────────────────────────────────────────── */
+#action-bar {
+  height: var(--actionbar-h);
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+#action-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+#action-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Status dot */
+#claude-status {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.status-idle    { color: var(--text-muted); }
+.status-running { color: var(--accent2); }
+.status-waiting { color: #f59e0b; animation: pulse 1.2s infinite; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+#prompt-hint {
+  font-size: 11px;
+  color: #f59e0b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+/* Buttons */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.action-btn kbd {
+  font-size: 10px;
+  opacity: .6;
+  font-family: inherit;
+}
+
+.action-btn.secondary {
+  background: var(--bg3);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+.action-btn.secondary:hover { color: var(--text); border-color: var(--accent); }
+
+.action-btn.success {
+  background: #065f46;
+  color: #6ee7b7;
+  border-color: var(--success);
+}
+.action-btn.success:hover { background: var(--success); color: #fff; }
+
+.action-btn.session {
+  background: #1e3a5f;
+  color: #93c5fd;
+  border-color: #3b82f6;
+}
+.action-btn.session:hover { background: #3b82f6; color: #fff; }
+
+/* Hide session button when prompt doesn't offer that option */
+#btn-session.hidden { display: none !important; }
+
+.action-btn.danger {
+  background: #450a0a;
+  color: #fca5a5;
+  border-color: var(--danger);
+}
+.action-btn.danger:hover { background: var(--danger); color: #fff; }
+
+/* Approval group highlight animation */
+#approval-group {
+  display: flex;
+  gap: 6px;
+  animation: slide-in .2s ease;
+}
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hidden { display: none !important; }
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }

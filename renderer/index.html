@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claude Terminal</title>
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- xterm.js from CDN (bundled via npm in production) -->
+  <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css" />
+</head>
+<body>
+
+  <!-- ── Top bar ───────────────────────────────────────────────────────── -->
+  <div id="titlebar">
+    <div id="titlebar-left">
+      <div id="app-icon">⚡</div>
+      <span id="app-title">Claude Terminal</span>
+      <button id="btn-pick-folder" title="Change working folder (Ctrl+Shift+O)">📁</button>
+      <span id="cwd-display" title="Current working directory"></span>
+    </div>
+    <div id="titlebar-right">
+      <select id="shell-select" title="Shell">
+        <option value="auto">Auto (Git Bash / PowerShell)</option>
+        <option value="powershell">PowerShell</option>
+        <option value="cmd">CMD</option>
+      </select>
+      <button id="btn-restart" title="Restart terminal (Ctrl+Shift+R)">↺ Restart</button>
+    </div>
+  </div>
+
+  <!-- ── Terminal ──────────────────────────────────────────────────────── -->
+  <div id="terminal-container">
+    <div id="terminal"></div>
+  </div>
+
+  <!-- ── Claude action bar ─────────────────────────────────────────────── -->
+  <div id="action-bar">
+    <div id="action-bar-left">
+      <span id="claude-status" class="status-idle">● Claude</span>
+      <span id="prompt-hint"></span>
+    </div>
+    <div id="action-bar-right">
+      <!-- Always-available shortcuts -->
+      <button class="action-btn secondary" id="btn-escape" title="Send Escape (cancel)">
+        Esc <kbd>Ctrl+[</kbd>
+      </button>
+
+      <!-- Claude approval buttons — shown when a yes/no is detected -->
+      <div id="approval-group" class="hidden">
+        <button class="action-btn danger" id="btn-refuse" title="Refuse (Ctrl+Shift+N)">
+          ✗ No <kbd>Ctrl+Shift+N</kbd>
+        </button>
+        <button class="action-btn session" id="btn-session" title="Yes, don't ask again this session (Ctrl+Shift+S)">
+          ↻ Yes, session <kbd>Ctrl+Shift+S</kbd>
+        </button>
+        <button class="action-btn success" id="btn-accept" title="Accept once (Ctrl+Shift+Y)">
+          ✓ Yes <kbd>Ctrl+Shift+Y</kbd>
+        </button>
+      </div>
+
+      <!-- Free-text quick send -->
+      <button class="action-btn secondary" id="btn-send-yes"  title="Send 'y'">y</button>
+      <button class="action-btn secondary" id="btn-send-no"   title="Send 'n'">n</button>
+      <button class="action-btn secondary" id="btn-send-enter" title="Send Enter">⏎</button>
+    </div>
+  </div>
+
+  <script src="../node_modules/@xterm/xterm/lib/xterm.js"></script>
+  <script src="../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+  <script src="../node_modules/@xterm/addon-web-links/lib/addon-web-links.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>
