@@ -63,6 +63,9 @@ const elBtnRestart    = document.getElementById('btn-restart');
 const elBtnPickFolder = document.getElementById('btn-pick-folder');
 const elCwdDisplay    = document.getElementById('cwd-display');
 const elShellSelect   = document.getElementById('shell-select');
+const elBtnTts        = document.getElementById('btn-tts');
+const elTtsVoice      = document.getElementById('tts-voice');
+const elTtsRate       = document.getElementById('tts-rate');
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -154,11 +157,143 @@ function setStatus(type, label) {
   elStatus.textContent = label;
 }
 
+// ── TTS engine ───────────────────────────────────────────────────────────────
+//
+// Uses the Web Speech API (speechSynthesis) — built into Chromium/Electron,
+// works offline via Windows SAPI voices. No API key required.
+
+const tts = {
+  enabled: false,
+  // Accumulate output chunks; flush after a short silence
+  _buffer: '',
+  _timer:  null,
+  _FLUSH_DELAY: 600,  // ms of silence before speaking the accumulated text
+
+  // Regex patterns to skip — shell noise we never want spoken
+  _SKIP: [
+    /^\s*$/,                          // blank
+    /^[\$#>]\s/,                      // shell prompts
+    /\x1b/,                           // any surviving ANSI (shouldn't happen)
+    /^(claude|bash|powershell)\s*$/i, // shell startup line
+    /^\[Process exited/,
+  ],
+
+  /** Clean raw terminal text so it sounds natural when spoken */
+  _clean(text) {
+    return text
+      // Strip leftover ANSI just in case
+      .replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
+      // Markdown headings → read the text, drop the # symbols
+      .replace(/^#{1,6}\s+/gm, '')
+      // Bold / italic
+      .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
+      .replace(/_{1,2}([^_]+)_{1,2}/g, '$1')
+      // Inline code — say "code: X"
+      .replace(/`([^`]+)`/g, '$1')
+      // Fenced code blocks — skip entirely (too noisy)
+      .replace(/```[\s\S]*?```/g, ' (code block) ')
+      // URLs — just say "link"
+      .replace(/https?:\/\/\S+/g, 'link')
+      // Bullet / numbered list markers
+      .replace(/^[\s]*[-*•]\s+/gm, '')
+      .replace(/^\s*\d+\.\s+/gm, '')
+      // Box-drawing chars Claude Code uses for UI
+      .replace(/[─│╭╮╰╯┌┐└┘├┤┬┴┼▶●◆■□]/g, '')
+      // Multiple spaces / newlines → single space
+      .replace(/\s+/g, ' ')
+      .trim();
+  },
+
+  /** Feed raw PTY output into the TTS buffer */
+  feed(raw) {
+    if (!this.enabled) return;
+    const text = this._clean(stripAnsi(raw));
+    if (!text || this._SKIP.some((p) => p.test(text))) return;
+
+    this._buffer += ' ' + text;
+
+    // Reset the flush timer on every new chunk (streaming output)
+    clearTimeout(this._timer);
+    this._timer = setTimeout(() => this._flush(), this._FLUSH_DELAY);
+  },
+
+  /** Speak whatever is in the buffer */
+  _flush() {
+    const text = this._buffer.trim();
+    this._buffer = '';
+    if (!text || text.length < 3) return;
+    this._speak(text);
+  },
+
+  /** Split into sentences and enqueue each as a separate utterance */
+  _speak(text) {
+    // Split on sentence boundaries so long responses feel natural
+    const sentences = text.match(/[^.!?\n]+[.!?\n]*/g) || [text];
+    for (const sentence of sentences) {
+      const s = sentence.trim();
+      if (!s) continue;
+      const utt = new SpeechSynthesisUtterance(s);
+      utt.voice = this._selectedVoice();
+      utt.rate  = parseFloat(elTtsRate.value);
+      speechSynthesis.speak(utt);
+    }
+  },
+
+  _selectedVoice() {
+    const voices = speechSynthesis.getVoices();
+    return voices.find((v) => v.name === elTtsVoice.value) || null;
+  },
+
+  stop() {
+    clearTimeout(this._timer);
+    this._buffer = '';
+    speechSynthesis.cancel();
+  },
+
+  toggle() {
+    this.enabled = !this.enabled;
+    if (!this.enabled) this.stop();
+    elBtnTts.textContent = this.enabled ? '🔊 TTS' : '🔇 TTS';
+    elBtnTts.className   = `action-btn ${this.enabled ? 'tts-on' : 'tts-off'}`;
+  },
+};
+
+// Populate voice list — voices load async in Chromium
+function populateVoices() {
+  const voices = speechSynthesis.getVoices();
+  if (!voices.length) return;
+  elTtsVoice.innerHTML = '';
+  // Put English voices first
+  const sorted = [
+    ...voices.filter((v) => v.lang.startsWith('en')),
+    ...voices.filter((v) => !v.lang.startsWith('en')),
+  ];
+  sorted.forEach((v) => {
+    const opt = document.createElement('option');
+    opt.value = v.name;
+    opt.textContent = `${v.name} (${v.lang})`;
+    // Default: prefer a local English voice
+    if (v.localService && v.lang.startsWith('en') && !elTtsVoice.value) {
+      opt.selected = true;
+    }
+    elTtsVoice.appendChild(opt);
+  });
+}
+
+speechSynthesis.addEventListener('voiceschanged', populateVoices);
+populateVoices(); // works if voices are already loaded
+
+elBtnTts.addEventListener('click', () => tts.toggle());
+
+// Stop speaking while the user is typing (less distracting)
+// — already handled because term.onData fires, and we don't feed user input
+
 // ── PTY data flow ─────────────────────────────────────────────────────────────
 
 window.electronAPI.onPtyData((data) => {
   term.write(data);
   updateBuffer(data);
+  tts.feed(data);
 
   if (detectApproval(data)) {
     // Extract a short hint from the last non-empty line
@@ -227,6 +362,11 @@ elShellSelect.addEventListener('change', restartPty);
 // ── Global keyboard shortcuts ─────────────────────────────────────────────────
 
 document.addEventListener('keydown', (e) => {
+  // Ctrl+Shift+T → Toggle TTS
+  if (e.ctrlKey && e.shiftKey && e.key === 'T') {
+    e.preventDefault();
+    tts.toggle();
+  }
   // Ctrl+Shift+Y → Yes (accept once)
   if (e.ctrlKey && e.shiftKey && e.key === 'Y') {
     e.preventDefault();
@@ -305,6 +445,7 @@ async function startPty() {
 }
 
 async function restartPty() {
+  tts.stop();
   window.electronAPI.killPty();
   claudeRunning = false;
   setApprovalVisible(false, '', false);

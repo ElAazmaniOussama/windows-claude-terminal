@@ -230,6 +230,49 @@ html, body {
 
 .hidden { display: none !important; }
 
+/* ── TTS controls ─────────────────────────────────────────────────────────── */
+#tts-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-right: 1px solid var(--border);
+  padding-right: 8px;
+  margin-right: 2px;
+}
+
+.action-btn.tts-off {
+  background: var(--bg3);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+.action-btn.tts-on {
+  background: #2d1b69;
+  color: #c4b5fd;
+  border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(124,58,237,.35);
+}
+.action-btn.tts-on:hover { background: var(--accent); color: #fff; }
+.action-btn.tts-off:hover { color: var(--text); border-color: var(--accent); }
+
+#tts-voice {
+  background: var(--bg3);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 11px;
+  max-width: 130px;
+  cursor: pointer;
+  outline: none;
+}
+#tts-voice:hover { border-color: var(--accent); }
+
+#tts-rate {
+  accent-color: var(--accent);
+  opacity: 0.7;
+}
+#tts-rate:hover { opacity: 1; }
+
 /* ── Scrollbar ────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

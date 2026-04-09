@@ -41,6 +41,16 @@
       <span id="prompt-hint"></span>
     </div>
     <div id="action-bar-right">
+      <!-- TTS controls -->
+      <div id="tts-group">
+        <button class="action-btn tts-off" id="btn-tts" title="Toggle text-to-speech (Ctrl+Shift+T)">
+          🔇 TTS
+        </button>
+        <select id="tts-voice" title="TTS voice"></select>
+        <input id="tts-rate" type="range" min="0.5" max="2" step="0.1" value="1"
+               title="Speed" style="width:56px; cursor:pointer;" />
+      </div>
+
       <!-- Always-available shortcuts -->
       <button class="action-btn secondary" id="btn-escape" title="Send Escape (cancel)">
         Esc <kbd>Ctrl+[</kbd>
