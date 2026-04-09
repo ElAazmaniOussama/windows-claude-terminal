@@ -255,76 +255,64 @@ document.addEventListener('drop', async (e) => {
 
 // ── STT engine ───────────────────────────────────────────────────────────────
 //
-// Uses the Web Speech API (SpeechRecognition) — built into Chromium/Electron,
-// uses the OS speech engine on Windows. No API key required.
-
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+// Offline STT via Windows SAPI (System.Speech) — main process spawns a
+// PowerShell child process (stt.ps1) that uses SpeechRecognitionEngine.
+// No internet required. Recognised text is written directly to the PTY.
 
 const stt = (() => {
-  if (!SpeechRecognition) {
-    console.warn('SpeechRecognition not available in this environment');
-    return { enabled: false, toggle() {}, stop() {} };
-  }
-
-  const rec = new SpeechRecognition();
-  rec.continuous      = true;   // keep listening after each result
-  rec.interimResults  = true;   // show partial results while speaking
-  rec.maxAlternatives = 1;
-
   let enabled = false;
 
-  rec.onresult = (e) => {
-    let interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const transcript = e.results[i][0].transcript;
-      if (e.results[i].isFinal) {
-        // Send the final recognised text to the terminal
-        const text = transcript.trim();
-        if (text) send(text);
-        elSttInterim.textContent = '';
-      } else {
-        interim += transcript;
-      }
-    }
-    elSttInterim.textContent = interim;
-  };
-
-  rec.onerror = (e) => {
-    // 'no-speech' fires after silence — just restart quietly
-    if (e.error === 'no-speech' && enabled) {
-      rec.stop(); // onend will restart it
-      return;
-    }
-    console.error('STT error:', e.error);
-    if (enabled) _disable();
-  };
-
-  rec.onend = () => {
-    // Restart automatically if still supposed to be on
-    if (enabled) {
-      try { rec.lang = elSttLang.value; rec.start(); } catch {}
-    }
-  };
-
-  function _enable() {
-    enabled = true;
-    rec.lang = elSttLang.value;
-    try { rec.start(); } catch {}
-    elBtnStt.textContent = '🎙 STT';
-    elBtnStt.className   = 'action-btn stt-on';
+  function _setUI(on) {
+    elBtnStt.textContent = on ? '🎙 STT' : '🎤 STT';
+    elBtnStt.className   = `action-btn stt-${on ? 'on' : 'off'}`;
+    if (!on) elSttInterim.textContent = '';
   }
 
-  function _disable() {
+  async function _enable() {
+    elSttInterim.textContent = 'starting…';
+    const result = await window.electronAPI.sttStart(elSttLang.value);
+    if (result === 'started' || result === 'already_running') {
+      enabled = true;
+      _setUI(true);
+      elSttInterim.textContent = 'listening…';
+    } else {
+      elSttInterim.textContent = 'failed';
+    }
+  }
+
+  async function _disable() {
     enabled = false;
-    try { rec.stop(); } catch {}
-    elSttInterim.textContent = '';
-    elBtnStt.textContent = '🎤 STT';
-    elBtnStt.className   = 'action-btn stt-off';
+    await window.electronAPI.sttStop();
+    _setUI(false);
   }
 
-  // Update lang immediately if the user changes it while active
+  // Main process sends each recognised line here
+  window.electronAPI.onSttResult((text) => {
+    elSttInterim.textContent = text;
+    // Clear the label after a moment
+    setTimeout(() => {
+      if (enabled) elSttInterim.textContent = 'listening…';
+    }, 1500);
+  });
+
+  // Main process signals the PowerShell process exited unexpectedly
+  window.electronAPI.onSttStopped(() => {
+    if (enabled) {
+      enabled = false;
+      _setUI(false);
+      elSttInterim.textContent = 'stopped';
+    }
+  });
+
+  window.electronAPI.onSttError((msg) => {
+    elSttInterim.textContent = '⚠ ' + msg.replace(/^ERROR:\s*/i, '').slice(0, 60);
+    enabled = false;
+    _setUI(false);
+  });
+
+  // Restart with new language if changed while active
   elSttLang.addEventListener('change', () => {
-    if (enabled) { rec.stop(); } // onend restarts with new lang
+    if (enabled) { _disable().then(_enable); }
   });
 
   return {

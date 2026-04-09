@@ -132,6 +132,57 @@ ipcMain.on('pty:write',  (_event, data)         => ptyProcess?.write(data));
 ipcMain.on('pty:resize', (_event, { cols, rows }) => ptyProcess?.resize(cols, rows));
 ipcMain.on('pty:kill',   ()                      => { ptyProcess?.kill(); ptyProcess = null; });
 
+// ── STT via Windows SAPI ─────────────────────────────────────────────────────
+
+let sttProcess = null;
+
+ipcMain.handle('stt:start', (_event, lang = 'en-US') => {
+  if (sttProcess) return 'already_running';
+
+  const { spawn } = require('child_process');
+  const scriptPath = path.join(__dirname, 'stt.ps1');
+
+  sttProcess = spawn('powershell.exe', [
+    '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+    '-File', scriptPath, '-Lang', lang,
+  ]);
+
+  sttProcess.stdout.on('data', (chunk) => {
+    const lines = chunk.toString().split(/\r?\n/);
+    for (const line of lines) {
+      const text = line.trim();
+      if (!text || text === 'READY') continue;
+      // Write recognised text directly to the PTY
+      if (ptyProcess) ptyProcess.write(text);
+      // Also notify renderer (for interim display)
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('stt:result', text);
+      }
+    }
+  });
+
+  sttProcess.stderr.on('data', (chunk) => {
+    const msg = chunk.toString().trim();
+    if (msg && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('stt:error', msg);
+    }
+  });
+
+  sttProcess.on('exit', () => {
+    sttProcess = null;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('stt:stopped');
+    }
+  });
+
+  return 'started';
+});
+
+ipcMain.handle('stt:stop', () => {
+  sttProcess?.kill();
+  sttProcess = null;
+});
+
 // ── Clipboard image save ──────────────────────────────────────────────────────
 
 ipcMain.handle('clipboard:saveImage', async (_event, buffer) => {
