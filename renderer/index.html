@@ -78,14 +78,25 @@
       <span id="prompt-hint"></span>
     </div>
     <div id="action-bar-right">
-      <!-- TTS controls -->
-      <div id="tts-group">
-        <button class="action-btn tts-off" id="btn-tts" title="Toggle text-to-speech (Ctrl+Shift+T)">
-          🔇 TTS
+      <!-- STT controls -->
+      <div id="stt-group">
+        <button class="action-btn stt-off" id="btn-stt" title="Toggle speech-to-text (Ctrl+Shift+T)">
+          🎤 STT
         </button>
-        <select id="tts-voice" title="TTS voice"></select>
-        <input id="tts-rate" type="range" min="0.5" max="2" step="0.1" value="1"
-               title="Speed" style="width:56px; cursor:pointer;" />
+        <select id="stt-lang" title="Recognition language">
+          <option value="en-US">English (US)</option>
+          <option value="en-GB">English (UK)</option>
+          <option value="fr-FR">Français</option>
+          <option value="de-DE">Deutsch</option>
+          <option value="es-ES">Español</option>
+          <option value="it-IT">Italiano</option>
+          <option value="pt-PT">Português</option>
+          <option value="nl-NL">Nederlands</option>
+          <option value="ja-JP">日本語</option>
+          <option value="zh-CN">中文 (简体)</option>
+          <option value="ar-SA">العربية</option>
+        </select>
+        <span id="stt-interim" title="Interim speech result"></span>
       </div>
 
       <!-- Always-available shortcuts -->

@@ -160,7 +160,14 @@ ipcMain.handle('app:getStartupCwd', () => startupCwd);
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  // Grant microphone permission for SpeechRecognition (STT)
+  const { session } = require('electron');
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(permission === 'media' || permission === 'microphone');
+  });
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   ptyProcess?.kill();

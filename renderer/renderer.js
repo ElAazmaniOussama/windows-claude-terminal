@@ -63,9 +63,9 @@ const elBtnRestart    = document.getElementById('btn-restart');
 const elBtnPickFolder = document.getElementById('btn-pick-folder');
 const elCwdDisplay    = document.getElementById('cwd-display');
 const elShellSelect   = document.getElementById('shell-select');
-const elBtnTts          = document.getElementById('btn-tts');
-const elTtsVoice        = document.getElementById('tts-voice');
-const elTtsRate         = document.getElementById('tts-rate');
+const elBtnStt          = document.getElementById('btn-stt');
+const elSttLang         = document.getElementById('stt-lang');
+const elSttInterim      = document.getElementById('stt-interim');
 const elImgPreview      = document.getElementById('img-preview');
 const elImgThumb        = document.getElementById('img-preview-thumb');
 const elImgPath         = document.getElementById('img-preview-path');
@@ -253,143 +253,94 @@ document.addEventListener('drop', async (e) => {
   }
 });
 
-// ── TTS engine ───────────────────────────────────────────────────────────────
+// ── STT engine ───────────────────────────────────────────────────────────────
 //
-// Uses the Web Speech API (speechSynthesis) — built into Chromium/Electron,
-// works offline via Windows SAPI voices. No API key required.
+// Uses the Web Speech API (SpeechRecognition) — built into Chromium/Electron,
+// uses the OS speech engine on Windows. No API key required.
 
-const tts = {
-  enabled: false,
-  // Accumulate output chunks; flush after a short silence
-  _buffer: '',
-  _timer:  null,
-  _FLUSH_DELAY: 600,  // ms of silence before speaking the accumulated text
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-  // Regex patterns to skip — shell noise we never want spoken
-  _SKIP: [
-    /^\s*$/,                          // blank
-    /^[\$#>]\s/,                      // shell prompts
-    /\x1b/,                           // any surviving ANSI (shouldn't happen)
-    /^(claude|bash|powershell)\s*$/i, // shell startup line
-    /^\[Process exited/,
-  ],
+const stt = (() => {
+  if (!SpeechRecognition) {
+    console.warn('SpeechRecognition not available in this environment');
+    return { enabled: false, toggle() {}, stop() {} };
+  }
 
-  /** Clean raw terminal text so it sounds natural when spoken */
-  _clean(text) {
-    return text
-      // Strip leftover ANSI just in case
-      .replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
-      // Markdown headings → read the text, drop the # symbols
-      .replace(/^#{1,6}\s+/gm, '')
-      // Bold / italic
-      .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
-      .replace(/_{1,2}([^_]+)_{1,2}/g, '$1')
-      // Inline code — say "code: X"
-      .replace(/`([^`]+)`/g, '$1')
-      // Fenced code blocks — skip entirely (too noisy)
-      .replace(/```[\s\S]*?```/g, ' (code block) ')
-      // URLs — just say "link"
-      .replace(/https?:\/\/\S+/g, 'link')
-      // Bullet / numbered list markers
-      .replace(/^[\s]*[-*•]\s+/gm, '')
-      .replace(/^\s*\d+\.\s+/gm, '')
-      // Box-drawing chars Claude Code uses for UI
-      .replace(/[─│╭╮╰╯┌┐└┘├┤┬┴┼▶●◆■□]/g, '')
-      // Multiple spaces / newlines → single space
-      .replace(/\s+/g, ' ')
-      .trim();
-  },
+  const rec = new SpeechRecognition();
+  rec.continuous      = true;   // keep listening after each result
+  rec.interimResults  = true;   // show partial results while speaking
+  rec.maxAlternatives = 1;
 
-  /** Feed raw PTY output into the TTS buffer */
-  feed(raw) {
-    if (!this.enabled) return;
-    const text = this._clean(stripAnsi(raw));
-    if (!text || this._SKIP.some((p) => p.test(text))) return;
+  let enabled = false;
 
-    this._buffer += ' ' + text;
-
-    // Reset the flush timer on every new chunk (streaming output)
-    clearTimeout(this._timer);
-    this._timer = setTimeout(() => this._flush(), this._FLUSH_DELAY);
-  },
-
-  /** Speak whatever is in the buffer */
-  _flush() {
-    const text = this._buffer.trim();
-    this._buffer = '';
-    if (!text || text.length < 3) return;
-    this._speak(text);
-  },
-
-  /** Split into sentences and enqueue each as a separate utterance */
-  _speak(text) {
-    // Split on sentence boundaries so long responses feel natural
-    const sentences = text.match(/[^.!?\n]+[.!?\n]*/g) || [text];
-    for (const sentence of sentences) {
-      const s = sentence.trim();
-      if (!s) continue;
-      const utt = new SpeechSynthesisUtterance(s);
-      utt.voice = this._selectedVoice();
-      utt.rate  = parseFloat(elTtsRate.value);
-      speechSynthesis.speak(utt);
+  rec.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const transcript = e.results[i][0].transcript;
+      if (e.results[i].isFinal) {
+        // Send the final recognised text to the terminal
+        const text = transcript.trim();
+        if (text) send(text);
+        elSttInterim.textContent = '';
+      } else {
+        interim += transcript;
+      }
     }
-  },
+    elSttInterim.textContent = interim;
+  };
 
-  _selectedVoice() {
-    const voices = speechSynthesis.getVoices();
-    return voices.find((v) => v.name === elTtsVoice.value) || null;
-  },
-
-  stop() {
-    clearTimeout(this._timer);
-    this._buffer = '';
-    speechSynthesis.cancel();
-  },
-
-  toggle() {
-    this.enabled = !this.enabled;
-    if (!this.enabled) this.stop();
-    elBtnTts.textContent = this.enabled ? '🔊 TTS' : '🔇 TTS';
-    elBtnTts.className   = `action-btn ${this.enabled ? 'tts-on' : 'tts-off'}`;
-  },
-};
-
-// Populate voice list — voices load async in Chromium
-function populateVoices() {
-  const voices = speechSynthesis.getVoices();
-  if (!voices.length) return;
-  elTtsVoice.innerHTML = '';
-  // Put English voices first
-  const sorted = [
-    ...voices.filter((v) => v.lang.startsWith('en')),
-    ...voices.filter((v) => !v.lang.startsWith('en')),
-  ];
-  sorted.forEach((v) => {
-    const opt = document.createElement('option');
-    opt.value = v.name;
-    opt.textContent = `${v.name} (${v.lang})`;
-    // Default: prefer a local English voice
-    if (v.localService && v.lang.startsWith('en') && !elTtsVoice.value) {
-      opt.selected = true;
+  rec.onerror = (e) => {
+    // 'no-speech' fires after silence — just restart quietly
+    if (e.error === 'no-speech' && enabled) {
+      rec.stop(); // onend will restart it
+      return;
     }
-    elTtsVoice.appendChild(opt);
+    console.error('STT error:', e.error);
+    if (enabled) _disable();
+  };
+
+  rec.onend = () => {
+    // Restart automatically if still supposed to be on
+    if (enabled) {
+      try { rec.lang = elSttLang.value; rec.start(); } catch {}
+    }
+  };
+
+  function _enable() {
+    enabled = true;
+    rec.lang = elSttLang.value;
+    try { rec.start(); } catch {}
+    elBtnStt.textContent = '🎙 STT';
+    elBtnStt.className   = 'action-btn stt-on';
+  }
+
+  function _disable() {
+    enabled = false;
+    try { rec.stop(); } catch {}
+    elSttInterim.textContent = '';
+    elBtnStt.textContent = '🎤 STT';
+    elBtnStt.className   = 'action-btn stt-off';
+  }
+
+  // Update lang immediately if the user changes it while active
+  elSttLang.addEventListener('change', () => {
+    if (enabled) { rec.stop(); } // onend restarts with new lang
   });
-}
 
-speechSynthesis.addEventListener('voiceschanged', populateVoices);
-populateVoices(); // works if voices are already loaded
+  return {
+    get enabled() { return enabled; },
+    toggle() { enabled ? _disable() : _enable(); },
+    stop()   { if (enabled) _disable(); },
+  };
+})();
 
-elBtnTts.addEventListener('click', () => tts.toggle());
-
-// Stop speaking while the user is typing (less distracting)
-// — already handled because term.onData fires, and we don't feed user input
+elBtnStt.addEventListener('click', () => stt.toggle());
 
 // ── PTY data flow ─────────────────────────────────────────────────────────────
 
 window.electronAPI.onPtyData((data) => {
   term.write(data);
   updateBuffer(data);
-  tts.feed(data);
 
   if (detectApproval(data)) {
     // Extract a short hint from the last non-empty line
@@ -458,10 +409,10 @@ elShellSelect.addEventListener('change', restartPty);
 // ── Global keyboard shortcuts ─────────────────────────────────────────────────
 
 document.addEventListener('keydown', (e) => {
-  // Ctrl+Shift+T → Toggle TTS
+  // Ctrl+Shift+T → Toggle STT
   if (e.ctrlKey && e.shiftKey && e.key === 'T') {
     e.preventDefault();
-    tts.toggle();
+    stt.toggle();
   }
   // Ctrl+Shift+Y → Yes (accept once)
   if (e.ctrlKey && e.shiftKey && e.key === 'Y') {
@@ -570,7 +521,7 @@ document.addEventListener('keydown', (e) => {
 // ── Start PTY ─────────────────────────────────────────────────────────────────
 
 async function restartPty() {
-  tts.stop();
+  stt.stop();
   window.electronAPI.killPty();
   claudeRunning = false;
   setApprovalVisible(false, '', false);
