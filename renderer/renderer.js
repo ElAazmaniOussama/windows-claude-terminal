@@ -400,6 +400,8 @@ elBtnRefuse.addEventListener('click', () => {
 elBtnEscape.addEventListener('click',    () => send('\x1b'));
 elBtnSendYes.addEventListener('click',   () => { send('y\r'); setApprovalVisible(false); });
 elBtnSendNo.addEventListener('click',    () => { send('n\r'); setApprovalVisible(false); });
+document.getElementById('btn-send-up').addEventListener('click',   () => send('\x1b[A'));
+document.getElementById('btn-send-down').addEventListener('click', () => send('\x1b[B'));
 elBtnSendEnter.addEventListener('click', () => send('\r'));
 
 elBtnRestart.addEventListener('click', restartPty);
