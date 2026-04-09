@@ -92,10 +92,24 @@ Works with Windows desktop shortcuts — just append the folder path in the shor
 | `Ctrl+Shift+Y` | **Yes** — accept Claude's prompt (once) |
 | `Ctrl+Shift+S` | **Yes, session** — accept and don't ask again this session |
 | `Ctrl+Shift+N` | **No** — refuse Claude's prompt |
+| `Ctrl+Shift+T` | Toggle text-to-speech on/off |
 | `Ctrl+Shift+O` | Open folder picker |
 | `Ctrl+Shift+R` | Restart the terminal |
 | `Ctrl+Shift+Enter` | Send Enter key |
 | `Ctrl+[` | Send Escape |
+
+---
+
+## Text-to-Speech
+
+Click **🔇 TTS** in the bottom bar (or press `Ctrl+Shift+T`) to toggle. When active the button glows purple (🔊 TTS).
+
+- **Offline** — uses Windows built-in SAPI voices (Microsoft David, Zira, etc.) via the Web Speech API. No internet or API key needed.
+- **Voice selector** — choose any installed Windows voice from the dropdown next to the button.
+- **Speed slider** — drag the slider (0.5× – 2×) to adjust reading speed.
+- **Smart cleaning** — strips markdown, fenced code blocks, URLs, box-drawing characters, and shell noise before speaking, so responses sound natural.
+- **Sentence chunking** — long responses are split at sentence boundaries and queued, so speech starts quickly and doesn't sound robotic.
+- Stops automatically when the terminal restarts.
 
 ---
 
@@ -151,7 +165,7 @@ windows-claude-terminal/
 
 ## Planned Features
 
-- [ ] Text-to-speech (TTS) readout of Claude responses
+- [x] Text-to-speech (TTS) readout of Claude responses — offline via Web Speech API
 - [ ] Session history / scrollback export
 - [ ] Packaged `.exe` installer (electron-builder)
 - [ ] Multiple tabs
