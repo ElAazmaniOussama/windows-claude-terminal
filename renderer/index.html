@@ -29,6 +29,33 @@
     </div>
   </div>
 
+  <!-- ── Session startup panel ───────────────────────────────────────── -->
+  <div id="session-panel">
+    <div id="session-panel-inner">
+      <div id="session-logo">⚡</div>
+      <h2>Start Claude</h2>
+      <p>How would you like to begin?</p>
+      <div id="session-buttons">
+        <button class="session-opt" id="sess-new" data-mode="new">
+          <span class="session-opt-icon">✦</span>
+          <span class="session-opt-label">New session</span>
+          <span class="session-opt-sub">Start fresh</span>
+        </button>
+        <button class="session-opt" id="sess-continue" data-mode="continue">
+          <span class="session-opt-icon">↩</span>
+          <span class="session-opt-label">Resume last</span>
+          <span class="session-opt-sub">Continue most recent</span>
+        </button>
+        <button class="session-opt" id="sess-resume" data-mode="resume">
+          <span class="session-opt-icon">☰</span>
+          <span class="session-opt-label">Pick session</span>
+          <span class="session-opt-sub">Choose from history</span>
+        </button>
+      </div>
+      <p class="session-hint">1 · 2 · 3 to choose with keyboard</p>
+    </div>
+  </div>
+
   <!-- ── Terminal ──────────────────────────────────────────────────────── -->
   <div id="terminal-container">
     <div id="terminal"></div>

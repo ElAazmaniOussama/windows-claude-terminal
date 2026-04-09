@@ -76,7 +76,7 @@ function resolveShell(shellOverride) {
   return candidates[0];
 }
 
-ipcMain.handle('pty:start', (_event, { cols, rows, shell: shellOverride, cwd }) => {
+ipcMain.handle('pty:start', (_event, { cols, rows, shell: shellOverride, cwd, sessionMode }) => {
   if (ptyProcess) return;
 
   const pty      = require('node-pty');
@@ -112,10 +112,16 @@ ipcMain.handle('pty:start', (_event, { cols, rows, shell: shellOverride, cwd }) 
   });
 
   // Auto-launch claude after shell initialises
+  // sessionMode: 'new' | 'continue' | 'resume' | 'none'
   setTimeout(() => {
-    if (ptyProcess) {
-      ptyProcess.write(isGitBash ? 'claude\n' : 'claude\r\n');
-    }
+    if (!ptyProcess) return;
+    const nl  = isGitBash ? '\n' : '\r\n';
+    const cmd =
+      sessionMode === 'continue' ? `claude --continue${nl}` :
+      sessionMode === 'resume'   ? `claude --resume${nl}`   :
+      sessionMode === 'none'     ? ''                        :
+                                   `claude${nl}`;            // 'new' or default
+    if (cmd) ptyProcess.write(cmd);
   }, 800);
 
   // Send the resolved cwd back so the renderer can display it

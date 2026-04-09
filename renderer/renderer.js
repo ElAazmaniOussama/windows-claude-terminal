@@ -70,6 +70,7 @@ const elImgPreview      = document.getElementById('img-preview');
 const elImgThumb        = document.getElementById('img-preview-thumb');
 const elImgPath         = document.getElementById('img-preview-path');
 const elImgClose        = document.getElementById('img-preview-close');
+const elSessionPanel    = document.getElementById('session-panel');
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -515,7 +516,7 @@ elBtnPickFolder.addEventListener('click', async () => {
   if (folder) {
     pendingCwd = folder;
     setCwdDisplay(folder);
-    await restartPty();
+    await restartPty(); // shows session panel after shell restarts
   }
 });
 
@@ -527,17 +528,46 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// ── Start PTY ─────────────────────────────────────────────────────────────────
+// ── Session startup panel ─────────────────────────────────────────────────────
 
-async function startPty() {
-  const shell = elShellSelect.value === 'auto' ? undefined : elShellSelect.value;
-  const cwd   = pendingCwd || undefined;
-  pendingCwd  = null;
-  const resolvedCwd = await window.electronAPI.startPty({ cols: term.cols, rows: term.rows, shell, cwd });
-  if (resolvedCwd) setCwdDisplay(resolvedCwd);
-  claudeRunning = true;
-  setStatus('running', '● Claude');
+function showSessionPanel() {
+  elSessionPanel.classList.remove('hidden');
+  // Focus the first button for keyboard navigation
+  document.getElementById('sess-new').focus();
 }
+
+function hideSessionPanel() {
+  elSessionPanel.classList.add('hidden');
+}
+
+function launchClaude(mode) {
+  // PTY is already running — just write the right command
+  const nl  = '\r\n';
+  const cmd =
+    mode === 'continue' ? `claude --continue${nl}` :
+    mode === 'resume'   ? `claude --resume${nl}`   :
+                          `claude${nl}`;
+  window.electronAPI.writePty(cmd);
+  hideSessionPanel();
+  term.focus();
+}
+
+// Button clicks
+document.querySelectorAll('.session-opt').forEach((btn) => {
+  btn.addEventListener('click', () => launchClaude(btn.dataset.mode));
+});
+
+// Keyboard shortcuts 1 / 2 / 3 while panel is visible
+document.addEventListener('keydown', (e) => {
+  if (elSessionPanel.classList.contains('hidden')) return;
+  const map = { '1': 'new', '2': 'continue', '3': 'resume' };
+  if (map[e.key]) {
+    e.preventDefault();
+    launchClaude(map[e.key]);
+  }
+});
+
+// ── Start PTY ─────────────────────────────────────────────────────────────────
 
 async function restartPty() {
   tts.stop();
@@ -546,17 +576,31 @@ async function restartPty() {
   setApprovalVisible(false, '', false);
   term.reset();
   await new Promise((r) => setTimeout(r, 300));
-  await startPty();
-  term.focus();
+  await bootShell();
 }
 
-// Boot — read startup cwd from main process, then start
+/** Start the underlying shell (no claude yet), then show session picker */
+async function bootShell() {
+  const shell = elShellSelect.value === 'auto' ? undefined : elShellSelect.value;
+  const resolvedCwd = await window.electronAPI.startPty({
+    cols: term.cols, rows: term.rows,
+    shell,
+    cwd: pendingCwd || undefined,
+    sessionMode: 'none',  // shell only, no claude
+  });
+  pendingCwd = null;
+  if (resolvedCwd) setCwdDisplay(resolvedCwd);
+  claudeRunning = true;
+  setStatus('running', '● Claude');
+  showSessionPanel();
+}
+
+// Boot
 (async () => {
   const startupCwd = await window.electronAPI.getStartupCwd();
   if (startupCwd) {
     pendingCwd = startupCwd;
     setCwdDisplay(startupCwd);
   }
-  await startPty();
-  term.focus();
+  await bootShell();
 })();
