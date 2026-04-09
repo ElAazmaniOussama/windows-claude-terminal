@@ -32,6 +32,16 @@
   <!-- ── Terminal ──────────────────────────────────────────────────────── -->
   <div id="terminal-container">
     <div id="terminal"></div>
+
+    <!-- Image preview — floats over the terminal bottom-left -->
+    <div id="img-preview" class="hidden">
+      <img id="img-preview-thumb" src="" alt="pasted image" />
+      <div id="img-preview-info">
+        <span id="img-preview-path"></span>
+        <span id="img-preview-hint">Path inserted ↵</span>
+      </div>
+      <button id="img-preview-close" title="Dismiss">✕</button>
+    </div>
   </div>
 
   <!-- ── Claude action bar ─────────────────────────────────────────────── -->

@@ -126,6 +126,15 @@ ipcMain.on('pty:write',  (_event, data)         => ptyProcess?.write(data));
 ipcMain.on('pty:resize', (_event, { cols, rows }) => ptyProcess?.resize(cols, rows));
 ipcMain.on('pty:kill',   ()                      => { ptyProcess?.kill(); ptyProcess = null; });
 
+// ── Clipboard image save ──────────────────────────────────────────────────────
+
+ipcMain.handle('clipboard:saveImage', async (_event, buffer) => {
+  const tmpDir  = require('os').tmpdir();
+  const imgPath = path.join(tmpDir, `claude-paste-${Date.now()}.png`);
+  fs.writeFileSync(imgPath, Buffer.from(buffer));
+  return imgPath;
+});
+
 // ── Folder picker ─────────────────────────────────────────────────────────────
 
 ipcMain.handle('dialog:pickFolder', async () => {

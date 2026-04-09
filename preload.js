@@ -8,8 +8,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   killPty: () => ipcRenderer.send('pty:kill'),
 
   // Folder
-  pickFolder:      ()  => ipcRenderer.invoke('dialog:pickFolder'),
-  getStartupCwd:   ()  => ipcRenderer.invoke('app:getStartupCwd'),
+  pickFolder:      ()       => ipcRenderer.invoke('dialog:pickFolder'),
+  getStartupCwd:   ()       => ipcRenderer.invoke('app:getStartupCwd'),
+
+  // Clipboard image
+  saveImage: (buffer) => ipcRenderer.invoke('clipboard:saveImage', buffer),
 
   // Events from main → renderer
   onPtyData: (cb) => ipcRenderer.on('pty:data', (_e, d)    => cb(d)),

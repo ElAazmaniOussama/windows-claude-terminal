@@ -63,9 +63,13 @@ const elBtnRestart    = document.getElementById('btn-restart');
 const elBtnPickFolder = document.getElementById('btn-pick-folder');
 const elCwdDisplay    = document.getElementById('cwd-display');
 const elShellSelect   = document.getElementById('shell-select');
-const elBtnTts        = document.getElementById('btn-tts');
-const elTtsVoice      = document.getElementById('tts-voice');
-const elTtsRate       = document.getElementById('tts-rate');
+const elBtnTts          = document.getElementById('btn-tts');
+const elTtsVoice        = document.getElementById('tts-voice');
+const elTtsRate         = document.getElementById('tts-rate');
+const elImgPreview      = document.getElementById('img-preview');
+const elImgThumb        = document.getElementById('img-preview-thumb');
+const elImgPath         = document.getElementById('img-preview-path');
+const elImgClose        = document.getElementById('img-preview-close');
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -156,6 +160,97 @@ function setStatus(type, label) {
   elStatus.className = `status-${type}`;
   elStatus.textContent = label;
 }
+
+// ── Paste & drag-drop ─────────────────────────────────────────────────────────
+//
+// Ctrl+V  → text: write to PTY directly
+//         → image: save to temp file, show preview, insert path into terminal
+// Drag image file onto window → same as image paste
+
+let imgPreviewTimer = null;
+
+function showImagePreview(imgPath) {
+  clearTimeout(imgPreviewTimer);
+  elImgThumb.src = 'file://' + imgPath.replace(/\\/g, '/');
+  elImgPath.textContent = imgPath;
+  elImgPreview.classList.remove('hidden');
+  // Auto-hide after 6 s
+  imgPreviewTimer = setTimeout(hideImagePreview, 6000);
+}
+
+function hideImagePreview() {
+  clearTimeout(imgPreviewTimer);
+  elImgPreview.classList.add('hidden');
+  elImgThumb.src = '';
+}
+
+elImgClose.addEventListener('click', hideImagePreview);
+
+/** Save an image Blob to a temp file and type its path into the terminal */
+async function pasteImageBlob(blob) {
+  const arrayBuf = await blob.arrayBuffer();
+  const imgPath  = await window.electronAPI.saveImage(arrayBuf);
+  // Insert the path at the current cursor position
+  send(imgPath);
+  showImagePreview(imgPath);
+  term.focus();
+}
+
+/** Save a file path as-is (drag-drop of an existing image file) */
+async function pasteImagePath(filePath) {
+  send(filePath);
+  // Show preview using the original file directly
+  elImgThumb.src = 'file://' + filePath.replace(/\\/g, '/');
+  elImgPath.textContent = filePath;
+  clearTimeout(imgPreviewTimer);
+  elImgPreview.classList.remove('hidden');
+  imgPreviewTimer = setTimeout(hideImagePreview, 6000);
+  term.focus();
+}
+
+// Intercept Ctrl+V before xterm can treat it as ^V (ASCII 22)
+term.attachCustomKeyEventHandler(async (e) => {
+  if (e.type !== 'keydown') return true;
+  if (!e.ctrlKey || e.key !== 'v' || e.shiftKey || e.altKey) return true;
+
+  // Ctrl+V pressed — check clipboard for image first, then text
+  try {
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      const imgType = item.types.find((t) => t.startsWith('image/'));
+      if (imgType) {
+        const blob = await item.getType(imgType);
+        await pasteImageBlob(blob);
+        return false; // consumed
+      }
+    }
+    // No image — paste as text
+    const text = await navigator.clipboard.readText();
+    if (text) send(text);
+  } catch {
+    // Clipboard API denied (e.g. focus issue) — let xterm handle it
+    return true;
+  }
+  return false;
+});
+
+// Drag-and-drop image files onto the terminal window
+document.addEventListener('dragover', (e) => { e.preventDefault(); });
+document.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  const files = [...(e.dataTransfer?.files || [])];
+  for (const file of files) {
+    if (file.type.startsWith('image/')) {
+      // file.path is an Electron-only property with the real FS path
+      if (file.path) {
+        await pasteImagePath(file.path);
+      } else {
+        await pasteImageBlob(file);
+      }
+      break; // one image at a time
+    }
+  }
+});
 
 // ── TTS engine ───────────────────────────────────────────────────────────────
 //

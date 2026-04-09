@@ -230,6 +230,65 @@ html, body {
 
 .hidden { display: none !important; }
 
+/* ── Image preview ────────────────────────────────────────────────────────── */
+#img-preview {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg2);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.5);
+  animation: slide-in .2s ease;
+  max-width: 420px;
+}
+
+#img-preview-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+#img-preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+#img-preview-path {
+  font-size: 11px;
+  font-family: 'Consolas', monospace;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+#img-preview-hint {
+  font-size: 11px;
+  color: var(--accent2);
+}
+
+#img-preview-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  line-height: 1;
+}
+#img-preview-close:hover { color: var(--danger); }
+
 /* ── TTS controls ─────────────────────────────────────────────────────────── */
 #tts-group {
   display: flex;
