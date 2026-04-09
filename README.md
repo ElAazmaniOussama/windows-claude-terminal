@@ -1,20 +1,18 @@
 # Claude Terminal for Windows
 
-A custom Electron terminal for Windows built specifically around [Claude Code](https://claude.ai/code). It opens your shell, launches `claude` automatically, and gives you one-click / one-shortcut buttons to handle Claude's approval prompts without touching the keyboard.
-
-![Claude Terminal](assets/screenshot.png)
+A custom Electron terminal built specifically around [Claude Code](https://claude.ai/code). It opens your shell, lets you pick a session, and gives you one-click buttons and keyboard shortcuts to handle every Claude interaction without touching the keyboard.
 
 ---
 
 ## Features
 
-- **Auto-launches Claude Code** on startup inside Git Bash, PowerShell, or CMD
-- **Smart approval bar** — detects when Claude asks for permission and surfaces buttons instantly
-  - Handles both 2-choice (`Yes / No`) and 3-choice (`Yes / Yes, don't ask again / No`) prompts
-- **Folder picker** — open any folder from the titlebar or via a Windows Explorer right-click
-- **Keyboard shortcuts** for everything — no mouse required
-- **Shell switcher** — switch between Git Bash, PowerShell, and CMD on the fly
-- Dark purple theme with a Catppuccin-inspired color palette
+- **Session picker** on every startup — New session, Resume last, or choose from history
+- **Smart approval bar** — detects Claude's permission prompts and surfaces the right buttons instantly (2-choice and 3-choice variants)
+- **Speech-to-text (STT)** — offline, no internet required, uses Windows' built-in speech engine
+- **Paste anything** — Ctrl+V for text and images; drag-and-drop images from Explorer
+- **Folder picker** — open any folder via the titlebar, Explorer right-click, or a CLI argument
+- **Shell switcher** — Git Bash, PowerShell, or CMD on the fly
+- Dark purple theme
 
 ---
 
@@ -22,12 +20,13 @@ A custom Electron terminal for Windows built specifically around [Claude Code](h
 
 | Requirement | Notes |
 |---|---|
-| **Windows 10 / 11** | Windows-only (uses ConPTY) |
+| **Windows 10 / 11** | Windows-only (uses ConPTY and Windows SAPI) |
 | **Node.js 18+** | [nodejs.org](https://nodejs.org) |
-| **Claude Code** | Install globally: `npm install -g @anthropic-ai/claude-code` |
-| **Git for Windows** *(optional)* | Enables Git Bash shell. [git-scm.com](https://git-scm.com) |
+| **Claude Code** | `npm install -g @anthropic-ai/claude-code` |
+| **Git for Windows** *(optional)* | Enables Git Bash. [git-scm.com](https://git-scm.com) |
+| **Windows Speech pack** *(for STT)* | Settings → Time & Language → Speech → Add voices |
 
-No Visual Studio Build Tools needed — `node-pty` ships with pre-built Windows binaries.
+No Visual Studio Build Tools needed — all native modules ship with pre-built Windows binaries.
 
 ---
 
@@ -57,31 +56,29 @@ start.bat "C:\Users\you\projects\myapp"
 
 ---
 
-## Setting the Working Folder
+## Session Picker
 
-There are three ways to control which folder the terminal opens in:
+Every time the terminal opens (or restarts), a panel appears before Claude launches:
 
-### 1. Windows Explorer right-click (recommended)
+```
+            ⚡  Start Claude
 
-Run **`install-context-menu.bat`** once — no administrator rights needed.
-
-After that, right-click any folder (or the background inside a folder) in Explorer and choose **"Open Claude Terminal here"**.
-
-To remove the menu entry, run **`uninstall-context-menu.bat`**.
-
-### 2. Folder picker in the titlebar
-
-Click the **📁** button (or press `Ctrl+Shift+O`). A native folder picker opens. The terminal restarts in the chosen folder and the path is displayed in the titlebar.
-
-### 3. Command-line argument
-
-Pass a path directly to `start.bat` or to the Electron binary:
-
-```bat
-start.bat "C:\path\to\project"
+  ┌────────────┐  ┌────────────┐  ┌────────────┐
+  │     ✦      │  │     ↩      │  │     ☰      │
+  │    New     │  │  Resume    │  │   Pick     │
+  │  session   │  │   last     │  │  session   │
+  └────────────┘  └────────────┘  └────────────┘
+              1  ·  2  ·  3  to choose
 ```
 
-Works with Windows desktop shortcuts — just append the folder path in the shortcut's *Target* field.
+| Option | Keyboard | Claude command |
+|---|---|---|
+| New session | `1` | `claude` |
+| Resume last | `2` | `claude --continue` |
+| Pick session | `3` | `claude --resume` (interactive list) |
+
+The shell starts in the background while the panel is shown, so there is no delay after picking.
+The panel reappears on every terminal restart and after changing the working folder.
 
 ---
 
@@ -92,44 +89,87 @@ Works with Windows desktop shortcuts — just append the folder path in the shor
 | `Ctrl+Shift+Y` | **Yes** — accept Claude's prompt (once) |
 | `Ctrl+Shift+S` | **Yes, session** — accept and don't ask again this session |
 | `Ctrl+Shift+N` | **No** — refuse Claude's prompt |
-| `Ctrl+Shift+T` | Toggle text-to-speech on/off |
+| `Ctrl+Shift+T` | Toggle speech-to-text on / off |
 | `Ctrl+Shift+O` | Open folder picker |
 | `Ctrl+Shift+R` | Restart the terminal |
 | `Ctrl+Shift+Enter` | Send Enter key |
+| `Ctrl+V` | Paste text or image from clipboard |
 | `Ctrl+[` | Send Escape |
-
----
-
-## Text-to-Speech
-
-Click **🔇 TTS** in the bottom bar (or press `Ctrl+Shift+T`) to toggle. When active the button glows purple (🔊 TTS).
-
-- **Offline** — uses Windows built-in SAPI voices (Microsoft David, Zira, etc.) via the Web Speech API. No internet or API key needed.
-- **Voice selector** — choose any installed Windows voice from the dropdown next to the button.
-- **Speed slider** — drag the slider (0.5× – 2×) to adjust reading speed.
-- **Smart cleaning** — strips markdown, fenced code blocks, URLs, box-drawing characters, and shell noise before speaking, so responses sound natural.
-- **Sentence chunking** — long responses are split at sentence boundaries and queued, so speech starts quickly and doesn't sound robotic.
-- Stops automatically when the terminal restarts.
 
 ---
 
 ## Approval Bar
 
-When Claude Code asks for permission (tool use, file edits, shell commands, etc.) the bottom bar automatically shows the relevant buttons:
+When Claude asks for permission the bottom bar shows the relevant buttons automatically.
 
 **2-choice prompt** (`Yes / No`):
 
 ```
-✗ No    ✓ Yes
+  ✗ No      ✓ Yes
 ```
 
 **3-choice prompt** (`Yes / Yes, don't ask again / No`):
 
 ```
-✗ No    ↻ Yes, session    ✓ Yes
+  ✗ No    ↻ Yes, session    ✓ Yes
 ```
 
-The buttons disappear as soon as you respond (via button or keyboard). The status dot in the bottom-left pulses amber while waiting.
+The status dot pulses amber while waiting. Buttons disappear as soon as you respond (via button, keyboard, or by typing directly).
+
+The bar also has always-visible quick-send buttons: `y` · `n` · `↑` · `↓` · `⏎` · `Esc`
+
+---
+
+## Speech-to-Text (STT)
+
+Click **🎤 STT** in the bottom bar or press `Ctrl+Shift+T` to toggle. The button pulses purple when active.
+
+- **Fully offline** — uses `System.Speech.Recognition` (Windows .NET / SAPI). No internet, no API key.
+- **Language selector** — choose from English (US/UK), French, German, Spanish, Italian, Portuguese, Dutch, Japanese, Chinese, Arabic.
+- Speak naturally; when you pause, the recognised text is typed into the terminal at the cursor.
+- The last recognised phrase is shown in the action bar for 1.5 seconds.
+
+> **If STT fails to start:** a Windows speech language pack must be installed.  
+> Go to *Settings → Time & Language → Speech → Add voices* and install the language matching your selection.
+
+---
+
+## Paste & Images
+
+### Text — `Ctrl+V`
+Pastes clipboard text directly into the terminal. (Chromium normally sends `^V` — this is intercepted.)
+
+### Images — `Ctrl+V` or drag-and-drop
+When the clipboard contains an image (screenshot, copied photo, etc.):
+1. The image is saved as a `.png` in `%TEMP%`
+2. The file path is typed into the terminal — Claude Code can read it
+3. A thumbnail preview appears in the bottom-left corner for 6 seconds
+
+Drag any image file from Explorer onto the window for the same result.
+
+---
+
+## Setting the Working Folder
+
+### 1. Windows Explorer right-click *(recommended)*
+
+Run **`install-context-menu.bat`** once — no administrator rights needed.
+
+Right-click any folder (or the background inside a folder) → **"Open Claude Terminal here"**.
+
+To remove: run **`uninstall-context-menu.bat`**.
+
+### 2. Folder picker in the titlebar
+
+Click the **📁** button or press `Ctrl+Shift+O`. Native folder dialog opens; terminal restarts in the chosen folder with the session picker shown again.
+
+### 3. Command-line argument
+
+```bat
+start.bat "C:\path\to\project"
+```
+
+Works with Windows desktop shortcuts — add the path in the shortcut's *Target* field.
 
 ---
 
@@ -137,8 +177,9 @@ The buttons disappear as soon as you respond (via button or keyboard). The statu
 
 ```
 windows-claude-terminal/
-├── main.js                     # Electron main process — window, PTY, IPC
+├── main.js                     # Electron main process — window, PTY, STT, IPC
 ├── preload.js                  # Secure context bridge (main ↔ renderer)
+├── stt.ps1                     # PowerShell STT script (Windows SAPI)
 ├── renderer/
 │   ├── index.html              # App shell
 │   ├── renderer.js             # xterm.js, prompt detection, button logic
@@ -155,20 +196,20 @@ windows-claude-terminal/
 ## How It Works
 
 1. **Electron** creates a frameless window with a custom titlebar.
-2. **node-pty** spawns a real Windows PTY (ConPTY) running your shell of choice.
-3. **xterm.js** renders the terminal output with full ANSI/VT support.
-4. The renderer listens to every chunk of PTY output, strips ANSI escape codes, and scans it against a set of regex patterns for Claude's approval prompts.
-5. When a match is found, the approval buttons slide in. Clicking a button sends the appropriate key sequence back to the PTY (`Enter`, `↓ Enter`, `↓↓ Enter`, or `n`).
-6. The folder picker uses Electron's native `dialog.showOpenDialog` and passes the chosen path as the `cwd` when the PTY is restarted.
+2. **node-pty** spawns a real Windows PTY (ConPTY) running the selected shell.
+3. **xterm.js** renders the terminal with full ANSI/VT support.
+4. On startup a **session panel** overlays the terminal; the user picks how to launch Claude (`claude`, `claude --continue`, or `claude --resume`).
+5. Every PTY output chunk is scanned with regex patterns for Claude's approval prompts; when matched, the approval buttons slide into view.
+6. **STT**: clicking the STT button spawns `stt.ps1` via `child_process.spawn`. PowerShell loads `System.Speech.Recognition.SpeechRecognitionEngine` with a `DictationGrammar`, listens on the default mic, and writes each recognised phrase to stdout. Node.js reads it and writes it to the PTY.
+7. **Image paste**: `Ctrl+V` is intercepted with `term.attachCustomKeyEventHandler`; if the clipboard contains an image it is saved to `%TEMP%` via an IPC call to the main process, and the path is inserted at the terminal cursor.
 
 ---
 
 ## Planned Features
 
-- [x] Text-to-speech (TTS) readout of Claude responses — offline via Web Speech API
-- [ ] Session history / scrollback export
 - [ ] Packaged `.exe` installer (electron-builder)
 - [ ] Multiple tabs
+- [ ] Session history / scrollback export
 
 ---
 
