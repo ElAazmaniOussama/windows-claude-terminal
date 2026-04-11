@@ -209,30 +209,40 @@ async function pasteImagePath(filePath) {
   term.focus();
 }
 
-// Intercept Ctrl+V before xterm can treat it as ^V (ASCII 22)
-term.attachCustomKeyEventHandler(async (e) => {
+// Intercept Ctrl+V before xterm can treat it as ^V (ASCII 22).
+// IMPORTANT: attachCustomKeyEventHandler must be synchronous — returning a
+// Promise is truthy and would let xterm process the key anyway. We return
+// false immediately and fire the async clipboard work as a detached task.
+term.attachCustomKeyEventHandler((e) => {
   if (e.type !== 'keydown') return true;
   if (!e.ctrlKey || e.key !== 'v' || e.shiftKey || e.altKey) return true;
 
-  // Ctrl+V pressed — check clipboard for image first, then text
-  try {
-    const items = await navigator.clipboard.read();
-    for (const item of items) {
-      const imgType = item.types.find((t) => t.startsWith('image/'));
-      if (imgType) {
-        const blob = await item.getType(imgType);
-        await pasteImageBlob(blob);
-        return false; // consumed
+  // Fire-and-forget — return false synchronously to block xterm's ^V
+  (async () => {
+    try {
+      // Try full clipboard read first (needed to detect images)
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imgType = item.types.find((t) => t.startsWith('image/'));
+        if (imgType) {
+          const blob = await item.getType(imgType);
+          await pasteImageBlob(blob);
+          return;
+        }
       }
+      // No image — paste as plain text
+      const text = await navigator.clipboard.readText();
+      if (text) send(text);
+    } catch {
+      // navigator.clipboard.read() may be blocked; fall back to readText
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) send(text);
+      } catch { /* nothing we can do */ }
     }
-    // No image — paste as text
-    const text = await navigator.clipboard.readText();
-    if (text) send(text);
-  } catch {
-    // Clipboard API denied (e.g. focus issue) — let xterm handle it
-    return true;
-  }
-  return false;
+  })();
+
+  return false; // always block xterm from forwarding ^V
 });
 
 // Drag-and-drop image files onto the terminal window
@@ -258,6 +268,40 @@ document.addEventListener('drop', async (e) => {
 // Offline STT via Windows SAPI (System.Speech) — main process spawns a
 // PowerShell child process (stt.ps1) that uses SpeechRecognitionEngine.
 // No internet required. Recognised text is written directly to the PTY.
+
+// Friendly display names for known locale codes
+const STT_LANG_NAMES = {
+  'en-US': 'English (US)',  'en-GB': 'English (UK)',
+  'fr-FR': 'Français',      'de-DE': 'Deutsch',
+  'es-ES': 'Español',       'it-IT': 'Italiano',
+  'pt-PT': 'Português',     'pt-BR': 'Português (BR)',
+  'nl-NL': 'Nederlands',    'ja-JP': '日本語',
+  'zh-CN': '中文 (简体)',    'zh-TW': '中文 (繁體)',
+  'ko-KR': '한국어',         'ar-SA': 'العربية',
+  'ru-RU': 'Русский',       'pl-PL': 'Polski',
+};
+
+// Populate the language dropdown with only the recognizers actually installed
+window.electronAPI.sttListLanguages().then((langs) => {
+  const prev = elSttLang.value;
+  elSttLang.innerHTML = '';
+  if (!langs || langs.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = ''; opt.textContent = 'No STT engines installed';
+    elSttLang.appendChild(opt);
+    elBtnStt.disabled = true;
+    elSttInterim.textContent = 'No STT engines — see Windows Speech settings';
+    return;
+  }
+  for (const code of langs) {
+    const opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = STT_LANG_NAMES[code] ?? code;
+    elSttLang.appendChild(opt);
+  }
+  // Restore previously selected language if it's still available
+  if (langs.includes(prev)) elSttLang.value = prev;
+});
 
 const stt = (() => {
   let enabled = false;

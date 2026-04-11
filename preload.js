@@ -15,8 +15,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveImage: (buffer) => ipcRenderer.invoke('clipboard:saveImage', buffer),
 
   // STT
-  sttStart: (lang) => ipcRenderer.invoke('stt:start', lang),
-  sttStop:  ()     => ipcRenderer.invoke('stt:stop'),
+  sttStart:         (lang) => ipcRenderer.invoke('stt:start', lang),
+  sttStop:          ()     => ipcRenderer.invoke('stt:stop'),
+  sttListLanguages: ()     => ipcRenderer.invoke('stt:listLanguages'),
   onSttResult:  (cb) => ipcRenderer.on('stt:result',  (_e, t) => cb(t)),
   onSttStopped: (cb) => ipcRenderer.on('stt:stopped', ()      => cb()),
   onSttError:   (cb) => ipcRenderer.on('stt:error',   (_e, m) => cb(m)),

@@ -183,6 +183,23 @@ ipcMain.handle('stt:stop', () => {
   sttProcess = null;
 });
 
+ipcMain.handle('stt:listLanguages', () => {
+  return new Promise((resolve) => {
+    const { spawn } = require('child_process');
+    const scriptPath = path.join(__dirname, 'stt.ps1');
+    const proc = spawn('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+      '-File', scriptPath, '-ListLanguages',
+    ]);
+    let out = '';
+    proc.stdout.on('data', (chunk) => { out += chunk.toString(); });
+    proc.on('exit', () => {
+      try { resolve(JSON.parse(out.trim())); }
+      catch { resolve([]); }
+    });
+  });
+});
+
 // ── Clipboard image save ──────────────────────────────────────────────────────
 
 ipcMain.handle('clipboard:saveImage', async (_event, buffer) => {
@@ -215,7 +232,12 @@ app.whenReady().then(() => {
   // Grant microphone permission for SpeechRecognition (STT)
   const { session } = require('electron');
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
-    callback(permission === 'media' || permission === 'microphone');
+    callback(
+      permission === 'media' ||
+      permission === 'microphone' ||
+      permission === 'clipboard-read' ||
+      permission === 'clipboard-sanitized-write'
+    );
   });
   createWindow();
 });
